@@ -8,170 +8,152 @@
 
 <style>
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: #0e1621;
   color: #ffffff;
   padding: 20px;
 }
+.container { max-width: 900px; margin: auto; }
 textarea {
   width: 100%;
-  height: 360px;
+  height: 350px;
+  background: #1b2838;
+  color: #fff;
+  border: 1px solid #34495e;
+  padding: 15px;
+  border-radius: 8px;
+  font-family: monospace;
 }
-input, button {
-  margin-top: 10px;
-  padding: 8px;
+.controls {
+  margin-top: 15px;
+  background: #162130;
+  padding: 20px;
+  border-radius: 8px;
 }
 button {
   background: #1e90ff;
   border: none;
   color: white;
+  padding: 12px 25px;
   cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
 }
+button:hover { background: #0077e6; }
+h2 { color: #1e90ff; margin-bottom: 10px; }
 </style>
 </head>
 
 <body>
 
-<h2>📊 Pronóstico Meteorológico Marítimo – Chiloé Oriental</h2>
+<div class="container">
+  <h2>📊 Procesador Meteorológico: Chiloé Oriental</h2>
+  <p>Pega el informe completo. Se eliminarán comas y puntos finales automáticamente.</p>
 
-<textarea id="texto" placeholder="Pega aquí el informe meteorológico completo"></textarea>
-<br>
-<input type="file" id="excel" accept=".xlsx">
-<br><br>
-
-<button onclick="procesar()">Procesar y descargar Excel</button>
+  <textarea id="texto" placeholder="Pega el informe completo aquí..."></textarea>
+  
+  <div class="controls">
+    <input type="file" id="excel" accept=".xlsx">
+    <button onclick="procesar()">Procesar y Descargar Excel</button>
+  </div>
+</div>
 
 <script>
-// ==================================================
-// 🔒 ZONAS PRIMER PERÍODO
-// ==================================================
-const ZONAS = [
-  {
-    inicio: "\\(CH 1\\):",
-    fin: "\\(CH 2\\):",
-    celdas: { NUB: "G3", VIS: "H3", VTO: "I3", MAR: "J3" }
-  },
-  {
-    inicio: "\\(CH 2\\):",
-    fin: "\\(CH 3\\):",
-    celdas: { NUB: "G4", VIS: "H4", VTO: "I4", MAR: "J4" }
-  },
-  {
-    inicio: "\\(CH 3\\):",
-    fin: "PRONOSTICO VALIDO DESDE",
-    celdas: { NUB: "G5", VIS: "H5", VTO: "I5", MAR: "J5" }
-  }
-];
+// --- FUNCIONES DE LIMPIEZA ---
 
-// 👉 SITUACIÓN SINÓPTICA → E2:E5
-const CELDAS_SINOPTICA = ["E2", "E3", "E4", "E5"];
-
-// ==================================================
-// 🧠 UTILIDADES
-// ==================================================
-function limpiar(txt) {
-  return txt.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+/**
+ * 1. Limpia espacios, saltos de línea y
+ * 2. Elimina Comas (,) o Puntos (.) al final de la frase.
+ */
+function limpiarTextoPro(t) {
+  if (!t) return "";
+  // Quitar saltos de línea y espacios extra
+  let limpio = t.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
+  // Quitar punto o coma final si existe
+  return limpio.replace(/[.,]$/, "").trim();
 }
 
-function limpiarFinal(txt) {
-  return txt.trim().replace(/[.,]$/, "");
+/**
+ * Elimina restos de encabezados de zonas que se colan por error en el campo MAR
+ */
+function limpiarBasuraZonas(t) {
+  let limpio = t.replace(/PUERTO MONTT A ISLA BUTA CHAUQUES.*|ISLA BUTA CHAUQUES A ISLA SAN PEDRO.*|BOCA DEL GUAFO Y GOLFO CORCOVADO.*/gi, "").trim();
+  return limpio.replace(/[.,]$/, "").trim(); // Re-limpiar puntuación tras quitar basura
 }
 
-function obtenerZona(texto, inicio, fin) {
-  const r = new RegExp(inicio + "([\\s\\S]*?)" + fin, "i");
-  const m = texto.match(r);
-  return m ? limpiar(m[1]) : "";
-}
-
-function extraerCampos(zona) {
-  const r = /^(.*?)VIS(.*?)VTO(.*?)MAR([\s\S]*)$/i;
-  const m = zona.match(r);
-  if (!m) return null;
-
-  return {
-    nub: limpiarFinal(limpiar(m[1])),
-    vis: limpiarFinal(limpiar(m[2])),
-    vto: limpiarFinal(limpiar(m[3])),
-    mar: limpiarFinal(limpiar(m[4]))
-  };
-}
-
-// 🔹 SITUACIÓN SINÓPTICA GENERAL
-function extraerSituacionSinoptica(texto) {
-  const r = /SITUACION SINOPTICA:\s*([^\n]+)/i;
-  const m = texto.match(r);
-  return m ? limpiarFinal(limpiar(m[1])) : "";
-}
-
-// ==================================================
-// 🔥 CH3 SEGUNDO PERÍODO
-// ==================================================
-function extraerCH3SegundoPeriodo(texto) {
-  const r = /PRONOSTICO VALIDO DESDE[\s\S]*?\(CH 3\):\s*([^\n]+)/i;
-  const m = texto.match(r);
-  if (!m) return null;
-
-  const linea = limpiarFinal(limpiar(m[1]));
-
-  const partes = linea.split("VTO");
-  if (partes.length < 2) return null;
-
-  return {
-    estado: limpiarFinal(partes[0]),
-    vto: limpiarFinal("VTO " + partes[1])
-  };
-}
-
-// ==================================================
-// ▶ PROCESAR
-// ==================================================
 function procesar() {
-  const texto = document.getElementById("texto").value.toUpperCase();
+  const fullText = document.getElementById("texto").value;
   const archivo = document.getElementById("excel").files[0];
 
-  if (!archivo) {
-    alert("Debes subir un archivo Excel");
+  if (!fullText || !archivo) {
+    alert("Por favor, ingresa el texto y el archivo Excel.");
     return;
   }
 
   const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type: "array" });
     const hoja = wb.Sheets[wb.SheetNames[0]];
 
-    // 🔹 PRIMER PERÍODO (CH1–CH3)
-    ZONAS.forEach(z => {
-      const zonaTxt = obtenerZona(texto, z.inicio, z.fin);
-      if (!zonaTxt) return;
+    // --- 1. SITUACIÓN SINÓPTICA ---
+    const matchSinop = fullText.match(/SITUACION SINOPTICA:([\s\S]*?)PRONOSTICO:/i);
+    if (matchSinop) {
+      const sinop = limpiarTextoPro(matchSinop[1]);
+      ["E2", "E3", "E4", "E5"].forEach(c => { 
+        hoja[c] = { t: 's', v: sinop }; 
+      });
+    }
 
-      const d = extraerCampos(zonaTxt);
-      if (!d) return;
+    // --- 2. DIVISIÓN POR PERÍODOS ---
+    const partesPeriodos = fullText.split(/PRONOSTICO VALIDO DESDE \d{6} HASTA \d{6} HORA LOCAL\./i);
+    const periodo1 = partesPeriodos[0];
+    const periodo2 = partesPeriodos[1] || "";
 
-      hoja[z.celdas.NUB] = { t: "s", v: d.nub };
-      hoja[z.celdas.VIS] = { t: "s", v: d.vis };
-      hoja[z.celdas.VTO] = { t: "s", v: d.vto };
-      hoja[z.celdas.MAR] = { t: "s", v: d.mar };
+    // CONFIGURACIÓN DE ZONAS (PERIODO 1)
+    const zonasCfg = [
+      { id: "CH 1", inicio: "\\(CH 1\\):", fin: "ISLA BUTA CHAUQUES", celdas: ["G3", "H3", "I3", "J3"] },
+      { id: "CH 2", inicio: "\\(CH 2\\):", fin: "BOCA DEL GUAFO", celdas: ["G4", "H4", "I4", "J4"] },
+      { id: "CH 3", inicio: "\\(CH 3\\):", fin: "$", celdas: ["G5", "H5", "I5", "J5"] } 
+    ];
+
+    zonasCfg.forEach(z => {
+      const regex = new RegExp(z.inicio + "([\\s\\S]*?)(?=" + z.fin + "|$)", "i");
+      const match = periodo1.match(regex);
+      
+      if (match) {
+        const bloque = match[1];
+        const n = bloque.match(/([\s\S]*?)VIS/i);
+        const vi = bloque.match(/VIS([\s\S]*?)VTO/i);
+        const vt = bloque.match(/VTO([\s\S]*?)MAR/i);
+        const ma = bloque.match(/MAR([\s\S]*)$/i);
+
+        if (n) hoja[z.celdas[0]] = { t: 's', v: limpiarTextoPro(n[1]) };
+        if (vi) hoja[z.celdas[1]] = { t: 's', v: "VIS " + limpiarTextoPro(vi[1]) };
+        if (vt) hoja[z.celdas[2]] = { t: 's', v: "VTO " + limpiarTextoPro(vt[1]) };
+        if (ma) hoja[z.celdas[3]] = { t: 's', v: "MAR " + limpiarBasuraZonas(ma[1]) };
+      }
     });
 
-    // 🔹 SITUACIÓN SINÓPTICA
-    const sinoptica = extraerSituacionSinoptica(texto);
-    if (sinoptica) {
-      CELDAS_SINOPTICA.forEach(c => hoja[c] = { t: "s", v: sinoptica });
+    // --- 3. SEGUNDO PERIODO (CH 3 -> Celdas O6 y R6) ---
+    const matchCH3_P2 = periodo2.match(/\(CH 3\):([\s\S]*?)(?=MET008FF|EMITIDO:|$)/i);
+    if (matchCH3_P2) {
+      const bloqueP2 = matchCH3_P2[1];
+      const p2Partes = bloqueP2.split(/VTO/i);
+      if (p2Partes.length > 1) {
+        hoja["O6"] = { t: 's', v: limpiarTextoPro(p2Partes[0]) };
+        hoja["R6"] = { t: 's', v: "VTO " + limpiarTextoPro(p2Partes[1]) };
+      }
     }
 
-    // 🔥 CH3 SEGUNDO PERÍODO → O6 / R6
-    const ch3b = extraerCH3SegundoPeriodo(texto);
-    if (ch3b) {
-      hoja["O6"] = { t: "s", v: ch3b.estado };
-      hoja["R6"] = { t: "s", v: ch3b.vto };
-    }
-
-    XLSX.writeFile(wb, "Pronostico_Chiloe_Oriental.xlsx");
+    XLSX.writeFile(wb, "6.- Chiloé Oriental.xlsx");
   };
-
   reader.readAsArrayBuffer(archivo);
 }
 </script>
 
 </body>
 </html>
+
+
+
