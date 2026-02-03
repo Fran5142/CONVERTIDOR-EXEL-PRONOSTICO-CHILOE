@@ -14,15 +14,17 @@ body {
   padding: 20px;
 }
 .container { max-width: 900px; margin: auto; }
+/* Estilo solicitado: Fondo blanco y letra negra */
 textarea {
   width: 100%;
   height: 350px;
-  background: #1b2838;
-  color: #fff;
-  border: 1px solid #34495e;
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #1e90ff;
   padding: 15px;
   border-radius: 8px;
-  font-family: monospace;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
 }
 .controls {
   margin-top: 15px;
@@ -41,6 +43,7 @@ button {
 }
 button:hover { background: #0077e6; }
 h2 { color: #1e90ff; margin-bottom: 10px; }
+p { color: #bdc3c7; }
 </style>
 </head>
 
@@ -48,13 +51,13 @@ h2 { color: #1e90ff; margin-bottom: 10px; }
 
 <div class="container">
   <h2>📊 Procesador Meteorológico: Chiloé Oriental</h2>
-  <p>Pega el informe. Se eliminarán las etiquetas (VIS, VTO, MAR), códigos MET y puntuación final.</p>
+  <p>Pega el informe en el cuadro blanco. Se limpiarán etiquetas (VIS, VTO, MAR) y códigos MET.</p>
 
-  <textarea id="texto" placeholder="Pega el informe completo aquí..."></textarea>
+  <textarea id="texto" placeholder="Pegue aquí el informe meteorológico marítimo..."></textarea>
   
   <div class="controls">
     <input type="file" id="excel" accept=".xlsx">
-    <button onclick="procesar()">Procesar y Descargar Excel</button>
+    <button onclick="procesar()">Procesar y Guardar Excel</button>
   </div>
 </div>
 
@@ -67,7 +70,7 @@ function limpiarTextoPro(t, etiquetaAEliminar = "") {
   // 1. Quitar saltos de línea y espacios extra
   let limpio = t.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
   
-  // 2. Eliminar la etiqueta específica (VIS, VTO o MAR) si se solicita
+  // 2. Eliminar la etiqueta específica (VIS, VTO o MAR)
   if (etiquetaAEliminar) {
     const regexEtiqueta = new RegExp("^" + etiquetaAEliminar + "\\s+", "i");
     limpio = limpio.replace(regexEtiqueta, "");
@@ -81,15 +84,14 @@ function limpiarTextoPro(t, etiquetaAEliminar = "") {
 }
 
 function limpiarBasuraZonas(t) {
-  // Elimina encabezados que se cuelan, la palabra MAR inicial y códigos MET
   let limpio = t.replace(/PUERTO MONTT A ISLA BUTA CHAUQUES.*|ISLA BUTA CHAUQUES A ISLA SAN PEDRO.*|BOCA DEL GUAFO Y GOLFO CORCOVADO.*|MET\d+[A-Z]+/gi, "").trim();
-  // Quitar la palabra MAR al inicio
   limpio = limpio.replace(/^MAR\s+/i, "");
   return limpio.replace(/[.,]$/, "").trim();
 }
 
 function procesar() {
-  const fullText = document.getElementById("texto").value;
+  const areaTexto = document.getElementById("texto");
+  const fullText = areaTexto.value;
   const archivo = document.getElementById("excel").files[0];
 
   if (!fullText || !archivo) {
@@ -110,21 +112,29 @@ function procesar() {
     if (matchValidez1) {
       const horaInicio1 = matchValidez1[1] + " HORA LOCAL";
       const horaFin1 = matchValidez1[2] + " HORA LOCAL";
-      ["C2", "C3", "C4", "C5"].forEach(celda => hoja[celda] = { t: 's', v: horaInicio1 });
-      ["D2", "D3", "D4", "D5"].forEach(celda => hoja[celda] = { t: 's', v: horaFin1 });
+      ["C2", "C3", "C4", "C5"].forEach(celda => {
+        if(!hoja[celda]) hoja[celda] = { t: 's' };
+        hoja[celda].v = horaInicio1;
+      });
+      ["D2", "D3", "D4", "D5"].forEach(celda => {
+        if(!hoja[celda]) hoja[celda] = { t: 's' };
+        hoja[celda].v = horaFin1;
+      });
     }
 
     // --- 2. SITUACIÓN SINÓPTICA (E2:E5) ---
     const matchSinop = fullText.match(/SITUACION SINOPTICA:([\s\S]*?)PRONOSTICO:/i);
     if (matchSinop) {
       const sinop = limpiarTextoPro(matchSinop[1]);
-      ["E2", "E3", "E4", "E5"].forEach(c => hoja[c] = { t: 's', v: sinop });
+      ["E2", "E3", "E4", "E5"].forEach(c => {
+        if(!hoja[c]) hoja[c] = { t: 's' };
+        hoja[c].v = sinop;
+      });
     }
 
     // --- 3. SEPARACIÓN DE PERIODOS ---
     const regexSeparador = /PRONOSTICO VALIDO DESDE\s+(\d{6})\s+HASTA\s+(\d{6})\s+HORA LOCAL\./i;
     const partesPeriodos = fullText.split(regexSeparador);
-    
     const periodo1 = partesPeriodos[0];
     
     if (partesPeriodos.length >= 4) {
@@ -141,7 +151,6 @@ function procesar() {
         const p2Partes = bloqueP2.split(/VTO/i);
         if (p2Partes.length > 1) {
           hoja["O6"] = { t: 's', v: limpiarTextoPro(p2Partes[0]) };
-          // Eliminamos "VTO" del segundo periodo también
           hoja["R6"] = { t: 's', v: limpiarTextoPro(p2Partes[1], "VTO") };
         }
       }
@@ -166,14 +175,15 @@ function procesar() {
         const ma = bloque.match(/MAR([\s\S]*)$/i);
 
         if (n) hoja[z.celdas[0]] = { t: 's', v: limpiarTextoPro(n[1]) };
-        // Limpiamos etiquetas VIS, VTO y MAR específicamente
         if (vi) hoja[z.celdas[1]] = { t: 's', v: limpiarTextoPro(vi[1], "VIS") };
         if (vt) hoja[z.celdas[2]] = { t: 's', v: limpiarTextoPro(vt[1], "VTO") };
         if (ma) hoja[z.celdas[3]] = { t: 's', v: limpiarBasuraZonas(ma[1]) };
       }
     });
 
+    // Descargar y limpiar el área de texto
     XLSX.writeFile(wb, "6.- Chiloé Oriental.xlsx");
+    areaTexto.value = ""; // Deja el cuadro en blanco para el próximo informe
   };
   reader.readAsArrayBuffer(archivo);
 }
