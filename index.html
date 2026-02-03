@@ -14,7 +14,6 @@ body {
   padding: 20px;
 }
 .container { max-width: 900px; margin: auto; }
-/* Estilo solicitado: Fondo blanco y letra negra */
 textarea {
   width: 100%;
   height: 350px;
@@ -31,6 +30,7 @@ textarea {
   background: #162130;
   padding: 20px;
   border-radius: 8px;
+  position: relative;
 }
 button {
   background: #1e90ff;
@@ -44,6 +44,17 @@ button {
 button:hover { background: #0077e6; }
 h2 { color: #1e90ff; margin-bottom: 10px; }
 p { color: #bdc3c7; }
+
+/* Estilo de la Firma */
+.firma {
+  margin-top: 25px;
+  text-align: right;
+  font-style: italic;
+  color: #8e959b;
+  font-size: 0.9em;
+  border-top: 1px solid #34495e;
+  padding-top: 10px;
+}
 </style>
 </head>
 
@@ -51,35 +62,30 @@ p { color: #bdc3c7; }
 
 <div class="container">
   <h2>📊 Procesador Meteorológico: Chiloé Oriental</h2>
-  <p>Pega el informe en el cuadro blanco. Se limpiarán etiquetas (VIS, VTO, MAR) y códigos MET.</p>
+  <p>Pega el informe en el cuadro blanco y carga tu plantilla Excel.</p>
 
   <textarea id="texto" placeholder="Pegue aquí el informe meteorológico marítimo..."></textarea>
   
   <div class="controls">
     <input type="file" id="excel" accept=".xlsx">
     <button onclick="procesar()">Procesar y Guardar Excel</button>
+    
+    <div class="firma">
+      Creado por Cabo 1º (Met.) Francisco Salas Muñoz - 03/02/2026
+    </div>
   </div>
 </div>
 
 <script>
 // --- FUNCIONES DE LIMPIEZA ---
-
 function limpiarTextoPro(t, etiquetaAEliminar = "") {
   if (!t) return "";
-  
-  // 1. Quitar saltos de línea y espacios extra
   let limpio = t.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
-  
-  // 2. Eliminar la etiqueta específica (VIS, VTO o MAR)
   if (etiquetaAEliminar) {
     const regexEtiqueta = new RegExp("^" + etiquetaAEliminar + "\\s+", "i");
     limpio = limpio.replace(regexEtiqueta, "");
   }
-
-  // 3. Eliminar códigos tipo MET008FF, MET106MD, etc.
   limpio = limpio.replace(/MET\d+[A-Z]+/gi, "").trim();
-  
-  // 4. Elimina punto o coma final
   return limpio.replace(/[.,]$/, "").trim();
 }
 
@@ -105,85 +111,72 @@ function procesar() {
     const wb = XLSX.read(data, { type: "array" });
     const hoja = wb.Sheets[wb.SheetNames[0]];
 
-    // --- 1. HORAS PRIMER PERIODO (C2:C5 y D2:D5) ---
+    // 1. HORAS P1
     const regexValidez1 = /VALIDO DESDE\s+(\d{6})\s+HASTA\s+(\d{6})\s+HORA LOCAL/i;
     const matchValidez1 = fullText.match(regexValidez1);
-
     if (matchValidez1) {
-      const horaInicio1 = matchValidez1[1] + " HORA LOCAL";
-      const horaFin1 = matchValidez1[2] + " HORA LOCAL";
-      ["C2", "C3", "C4", "C5"].forEach(celda => {
-        if(!hoja[celda]) hoja[celda] = { t: 's' };
-        hoja[celda].v = horaInicio1;
-      });
-      ["D2", "D3", "D4", "D5"].forEach(celda => {
-        if(!hoja[celda]) hoja[celda] = { t: 's' };
-        hoja[celda].v = horaFin1;
-      });
+      const h1 = matchValidez1[1] + " HORA LOCAL";
+      const h2 = matchValidez1[2] + " HORA LOCAL";
+      ["C2","C3","C4","C5"].forEach(c => { if(!hoja[c]) hoja[c]={t:'s'}; hoja[c].v=h1; });
+      ["D2","D3","D4","D5"].forEach(c => { if(!hoja[c]) hoja[c]={t:'s'}; hoja[c].v=h2; });
     }
 
-    // --- 2. SITUACIÓN SINÓPTICA (E2:E5) ---
+    // 2. SINÓPTICA
     const matchSinop = fullText.match(/SITUACION SINOPTICA:([\s\S]*?)PRONOSTICO:/i);
     if (matchSinop) {
       const sinop = limpiarTextoPro(matchSinop[1]);
-      ["E2", "E3", "E4", "E5"].forEach(c => {
-        if(!hoja[c]) hoja[c] = { t: 's' };
-        hoja[c].v = sinop;
-      });
+      ["E2","E3","E4","E5"].forEach(c => { if(!hoja[c]) hoja[c]={t:'s'}; hoja[c].v=sinop; });
     }
 
-    // --- 3. SEPARACIÓN DE PERIODOS ---
-    const regexSeparador = /PRONOSTICO VALIDO DESDE\s+(\d{6})\s+HASTA\s+(\d{6})\s+HORA LOCAL\./i;
-    const partesPeriodos = fullText.split(regexSeparador);
-    const periodo1 = partesPeriodos[0];
+    // 3. PERIODOS Y HORAS P2
+    const regexSep = /PRONOSTICO VALIDO DESDE\s+(\d{6})\s+HASTA\s+(\d{6})\s+HORA LOCAL\./i;
+    const partes = fullText.split(regexSep);
+    const periodo1 = partes[0];
     
-    if (partesPeriodos.length >= 4) {
-      // --- 4. HORAS SEGUNDO PERIODO (L6 y M6) ---
-      hoja["L6"] = { t: 's', v: partesPeriodos[1] };
-      hoja["M6"] = { t: 's', v: partesPeriodos[2] };
-
-      const periodo2 = partesPeriodos[3];
-
-      // --- 5. CH 3 SEGUNDO PERIODO (O6 y R6) ---
+    if (partes.length >= 4) {
+      hoja["L6"] = { t: 's', v: partes[1] };
+      hoja["M6"] = { t: 's', v: partes[2] };
+      const periodo2 = partes[3];
       const matchCH3_P2 = periodo2.match(/\(CH 3\):([\s\S]*?)(?=MET\d+|EMITIDO:|$)/i);
       if (matchCH3_P2) {
         const bloqueP2 = matchCH3_P2[1];
-        const p2Partes = bloqueP2.split(/VTO/i);
-        if (p2Partes.length > 1) {
-          hoja["O6"] = { t: 's', v: limpiarTextoPro(p2Partes[0]) };
-          hoja["R6"] = { t: 's', v: limpiarTextoPro(p2Partes[1], "VTO") };
+        const p2p = bloqueP2.split(/VTO/i);
+        if (p2p.length > 1) {
+          hoja["O6"] = { t: 's', v: limpiarTextoPro(p2p[0]) };
+          hoja["R6"] = { t: 's', v: limpiarTextoPro(p2p[1], "VTO") };
         }
       }
     }
 
-    // --- 6. PRONÓSTICO PRIMER PERIODO (CH1, CH2, CH3) ---
+    // 4. ZONAS P1
     const zonasCfg = [
-      { id: "CH 1", inicio: "\\(CH 1\\):", fin: "ISLA BUTA CHAUQUES", celdas: ["G3", "H3", "I3", "J3"] },
-      { id: "CH 2", inicio: "\\(CH 2\\):", fin: "BOCA DEL GUAFO", celdas: ["G4", "H4", "I4", "J4"] },
-      { id: "CH 3", inicio: "\\(CH 3\\):", fin: "$", celdas: ["G5", "H5", "I5", "J5"] } 
+      { inicio: "\\(CH 1\\):", fin: "ISLA BUTA CHAUQUES", celdas: ["G3", "H3", "I3", "J3"] },
+      { inicio: "\\(CH 2\\):", fin: "BOCA DEL GUAFO", celdas: ["G4", "H4", "I4", "J4"] },
+      { inicio: "\\(CH 3\\):", fin: "$", celdas: ["G5", "H5", "I5", "J5"] } 
     ];
 
     zonasCfg.forEach(z => {
-      const regex = new RegExp(z.inicio + "([\\s\\S]*?)(?=" + z.fin + "|$)", "i");
-      const match = periodo1.match(regex);
-      
-      if (match) {
-        const bloque = match[1];
-        const n = bloque.match(/([\s\S]*?)VIS/i);
-        const vi = bloque.match(/VIS([\s\S]*?)VTO/i);
-        const vt = bloque.match(/VTO([\s\S]*?)MAR/i);
-        const ma = bloque.match(/MAR([\s\S]*)$/i);
-
-        if (n) hoja[z.celdas[0]] = { t: 's', v: limpiarTextoPro(n[1]) };
-        if (vi) hoja[z.celdas[1]] = { t: 's', v: limpiarTextoPro(vi[1], "VIS") };
-        if (vt) hoja[z.celdas[2]] = { t: 's', v: limpiarTextoPro(vt[1], "VTO") };
-        if (ma) hoja[z.celdas[3]] = { t: 's', v: limpiarBasuraZonas(ma[1]) };
+      const r = new RegExp(z.inicio + "([\\s\\S]*?)(?=" + z.fin + "|$)", "i");
+      const m = periodo1.match(r);
+      if (m) {
+        const b = m[1];
+        const fieldN = b.match(/([\s\S]*?)VIS/i);
+        const fieldVi = b.match(/VIS([\s\S]*?)VTO/i);
+        const fieldVt = b.match(/VTO([\s\S]*?)MAR/i);
+        const fieldMa = b.match(/MAR([\s\S]*)$/i);
+        if (fieldN) hoja[z.celdas[0]] = { t: 's', v: limpiarTextoPro(fieldN[1]) };
+        if (fieldVi) hoja[z.celdas[1]] = { t: 's', v: limpiarTextoPro(fieldVi[1], "VIS") };
+        if (fieldVt) hoja[z.celdas[2]] = { t: 's', v: limpiarTextoPro(fieldVt[1], "VTO") };
+        if (fieldMa) hoja[z.celdas[3]] = { t: 's', v: limpiarBasuraZonas(fieldMa[1]) };
       }
     });
 
-    // Descargar y limpiar el área de texto
-    XLSX.writeFile(wb, "6.- Chiloé Oriental.xlsx");
-    areaTexto.value = ""; // Deja el cuadro en blanco para el próximo informe
+    // Guardar archivo
+    XLSX.writeFile(wb, "Pronostico_Final.xlsx");
+    
+    // Limpieza y aviso
+    areaTexto.value = ""; 
+    alert("Procesado con éxito por el sistema del Cabo 1º Salas.");
   };
   reader.readAsArrayBuffer(archivo);
 }
