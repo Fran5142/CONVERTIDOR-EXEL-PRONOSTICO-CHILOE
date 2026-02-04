@@ -7,53 +7,142 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
-body {
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: #0e1621;
-  color: #ffffff;
-  padding: 20px;
+/* --- ESTILO VISUAL: MODERN NAVY DARK MODE --- */
+:root {
+  --bg-navy-dark: #0a192f;
+  --bg-navy-light: #172a45;
+  --text-light: #e6f1ff;
+  --text-muted: #8892b0;
+  --accent-cyan: #64ffda;
+  --accent-blue: #00b4d8;
 }
-.container { max-width: 900px; margin: auto; }
+
+body {
+  font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
+  /* Degradado de azul marino profundo */
+  background: linear-gradient(135deg, var(--bg-navy-dark) 0%, #112240 100%);
+  color: var(--text-light);
+  padding: 40px 20px;
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 900px;
+  /* Efecto de vidrio oscuro semitransparente */
+  background: rgba(23, 42, 69, 0.85);
+  backdrop-filter: blur(10px);
+  padding: 45px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+h2 {
+  color: var(--accent-cyan); /* Título en color cian brillante */
+  margin-top: 0;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+p {
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.1em;
+}
+
+/* EL ÁREA DE TEXTO BLANCA SOLICITADA */
 textarea {
   width: 100%;
-  height: 350px;
+  height: 300px;
   background: #ffffff;
-  color: #000000;
-  border: 2px solid #1e90ff;
-  padding: 15px;
-  border-radius: 8px;
+  color: #0a192f; /* Texto oscuro sobre fondo blanco */
+  border: 3px solid transparent;
+  padding: 20px;
+  border-radius: 12px;
   font-family: 'Courier New', Courier, monospace;
   font-size: 14px;
+  resize: vertical;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
+
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-cyan); /* Borde cian al enfocar */
+  box-shadow: 0 0 20px rgba(100, 255, 218, 0.25); /* Resplandor suave */
+}
+
 .controls {
-  margin-top: 15px;
-  background: #162130;
-  padding: 20px;
+  margin-top: 30px;
+  background: rgba(10, 25, 47, 0.5); /* Fondo más oscuro para controles */
+  padding: 30px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+input[type="file"] {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.1); /* Input semitransparente */
+  color: var(--accent-cyan);
   border-radius: 8px;
-  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 100%;
+  max-width: 450px;
+  transition: all 0.3s;
 }
+input[type="file"]:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-cyan);
+}
+
 button {
-  background: #1e90ff;
+  /* Botón con degradado vibrante */
+  background: linear-gradient(to right, var(--accent-cyan), var(--accent-blue));
   border: none;
-  color: white;
-  padding: 12px 25px;
+  color: var(--bg-navy-dark); /* Texto oscuro para contraste */
+  padding: 15px 50px;
   cursor: pointer;
-  font-weight: bold;
-  border-radius: 4px;
+  font-weight: 800;
+  border-radius: 50px;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 15px rgba(0, 180, 216, 0.3);
 }
-button:hover { background: #0077e6; }
-h2 { color: #1e90ff; margin-bottom: 10px; }
-p { color: #bdc3c7; }
+
+button:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 180, 216, 0.5);
+}
+
+button:active {
+  transform: translateY(1px);
+}
 
 /* Estilo de la Firma */
 .firma {
   margin-top: 25px;
   text-align: right;
   font-style: italic;
-  color: #8e959b;
+  color: var(--text-muted);
   font-size: 0.9em;
-  border-top: 1px solid #34495e;
-  padding-top: 10px;
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 20px;
+  opacity: 0.7;
 }
 </style>
 </head>
@@ -62,13 +151,13 @@ p { color: #bdc3c7; }
 
 <div class="container">
   <h2>📊 Procesador Meteorológico: Chiloé Oriental</h2>
-  <p>Pega el informe en el cuadro blanco y carga tu plantilla Excel.</p>
+  <p>Pegue el informe en el cuadro blanco a continuación.</p>
 
   <textarea id="texto" placeholder="Pegue aquí el informe meteorológico marítimo..."></textarea>
   
   <div class="controls">
     <input type="file" id="excel" accept=".xlsx">
-    <button onclick="procesar()">Procesar y Guardar Excel</button>
+    <button onclick="procesar()">PROCESAR Y GUARDAR EXCEL</button>
     
     <div class="firma">
       Creado por Cabo 1º (Met.) Francisco Salas Muñoz - 03/02/2026
