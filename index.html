@@ -66,64 +66,52 @@ p {
   margin: 10px 0;
 }
 
-textarea {
-  width: 100%;
-  height: 280px;
-  background-color: var(--pure-white);
-  color: #1a1a1a;
-  border: none;
-  padding: 20px;
-  border-radius: 8px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  resize: none;
-  box-sizing: border-box;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-  margin-bottom: 25px;
-}
-
-textarea:focus {
-  outline: 3px solid var(--gold-accent);
-}
-
 .controls-card {
   background: var(--navy-secondary);
-  padding: 25px;
+  padding: 30px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 25px;
   border: 1px solid rgba(255, 195, 0, 0.1);
 }
 
 .file-input-wrapper {
   width: 100%;
-  max-width: 400px;
-  text-align: center;
+  max-width: 500px;
+  text-align: left;
+}
+
+.label-input {
+  margin-bottom: 8px; 
+  font-weight: bold; 
+  color: var(--gold-accent);
+  display: block;
 }
 
 input[type="file"] {
   width: 100%;
   color: var(--text-gray);
   background: rgba(255,255,255,0.05);
-  padding: 10px;
+  padding: 12px;
   border-radius: 6px;
   border: 1px dashed var(--gold-accent);
+  box-sizing: border-box;
 }
 
 button {
   background: var(--gold-accent);
   color: var(--navy-primary);
   border: none;
-  padding: 16px 45px;
+  padding: 18px 55px;
   border-radius: 8px;
   font-size: 15px;
   font-weight: 800;
   text-transform: uppercase;
   cursor: pointer;
   transition: 0.3s;
+  margin-top: 10px;
 }
 
 button:hover {
@@ -147,22 +135,26 @@ button:hover {
 <div class="container">
   <div class="header-section">
     <h2>Chiloé Oriental</h2>
-    <p>Ingreso de Datos para Conversión a Formato Excel</p>
+    <p>Conversión de Archivo TXT a Formato Excel Profesional</p>
   </div>
-
-  <textarea id="texto" placeholder="Pegue aquí el informe meteorológico marítimo..."></textarea>
   
   <div class="controls-card">
     <div class="file-input-wrapper">
-      <p style="margin-bottom: 8px; font-weight: bold; color: var(--gold-accent);">1. Seleccione plantilla Excel:</p>
-      <input type="file" id="excel" accept=".xlsx">
+      <label class="label-input">1. Cargar archivo (chiloeoriental72.txt):</label>
+      <input type="file" id="txtFile" accept=".txt">
     </div>
-    <button onclick="procesar()">Ejecutar Procesamiento</button>
+
+    <div class="file-input-wrapper">
+      <label class="label-input">2. Seleccione plantilla Excel (6.- Chiloé Oriental_PLANTILLA):</label>
+      <input type="file" id="excelFile" accept=".xlsx">
+    </div>
+
+    <button onclick="procesarArchivos()">Ejecutar Procesamiento</button>
   </div>
 
   <div class="firma">
     <strong>SISTEMA DE PROCESAMIENTO METEOROLÓGICO</strong><br>
-    Creado por Cabo 1º (Met.) Francisco Salas Muñoz - 03/02/2026
+    Creado por Cabo 1º (Met.) Francisco Salas Muñoz - 2026
   </div>
 </div>
 
@@ -171,7 +163,6 @@ button:hover {
 function limpiarTextoPro(t, etiquetaAEliminar = "") {
   if (!t) return "";
 
-  // Corrección manual de caracteres mal codificados (Solución definitiva para "CUÑA")
   let mapaCorrecion = {
     "Ã‘": "Ñ", "Ã±": "ñ", "Ã ": "Á", "Ã¡": "á", "Ã‰": "É", "Ã©": "é",
     "Ã ": "Í", "Ã­": "í", "Ã“": "Ó", "Ã³": "ó", "Ãš": "Ú", "Ãº": "ú"
@@ -195,7 +186,6 @@ function limpiarTextoPro(t, etiquetaAEliminar = "") {
 function limpiarBasuraZonas(t) {
   let limpio = t.replace(/PUERTO MONTT A ISLA BUTA CHAUQUES.*|ISLA BUTA CHAUQUES A ISLA SAN PEDRO.*|BOCA DEL GUAFO Y GOLFO CORCOVADO.*|MET\d+[A-Z]+/gi, "").trim();
   
-  // También aplicamos la corrección aquí por si acaso
   let mapaCorrecion = { "Ã‘": "Ñ", "Ã±": "ñ" };
   Object.keys(mapaCorrecion).forEach(key => {
     limpio = limpio.split(key).join(mapaCorrecion[key]);
@@ -205,23 +195,26 @@ function limpiarBasuraZonas(t) {
   return limpio.replace(/[.,]$/, "").trim();
 }
 
-function procesar() {
-  const areaTexto = document.getElementById("texto");
-  const fullText = areaTexto.value;
-  const archivo = document.getElementById("excel").files[0];
+async function procesarArchivos() {
+  const txtFile = document.getElementById("txtFile").files[0];
+  const excelFile = document.getElementById("excelFile").files[0];
 
-  if (!fullText || !archivo) {
-    alert("Por favor, ingresa el texto y el archivo Excel.");
+  if (!txtFile || !excelFile) {
+    alert("Por favor, cargue tanto el archivo TXT como la plantilla Excel.");
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const data = new Uint8Array(e.target.result);
+  try {
+    // 1. Leer el TXT
+    const fullText = await txtFile.text();
+
+    // 2. Leer el Excel
+    const arrayBuffer = await excelFile.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
     const wb = XLSX.read(data, { type: "array" });
     const hoja = wb.Sheets[wb.SheetNames[0]];
 
-    // --- LÓGICA DE PROCESAMIENTO ---
+    // --- LÓGICA DE PROCESAMIENTO (Mantenida exactamente igual) ---
     const regexValidez1 = /VALIDO DESDE\s+(\d{6})\s+HASTA\s+(\d{6})\s+HORA LOCAL/i;
     const matchValidez1 = fullText.match(regexValidez1);
     if (matchValidez1) {
@@ -278,15 +271,16 @@ function procesar() {
       }
     });
 
-    // Forzar guardado como UTF-8
     if(!wb.Props) wb.Props = {};
     wb.Props.CodePage = 65001; 
 
     XLSX.writeFile(wb, "6.- Chiloé Oriental.xlsx");
-    areaTexto.value = ""; 
-    alert("Procesado con éxito");
-  };
-  reader.readAsArrayBuffer(archivo);
+    alert("Excel generado con éxito.");
+
+  } catch (error) {
+    console.error(error);
+    alert("Error al procesar los archivos. Verifique que el formato sea correcto.");
+  }
 }
 </script>
 
